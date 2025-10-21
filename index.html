@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ashal's Christmas Poem - With Love from Santa's Workshop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(to bottom, #0a3d62 0%, #2c5f7e 50%, #4a7c9e 100%);
+            overflow: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Snowflake animation */
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            color: white;
+            font-size: 1em;
+            pointer-events: none;
+            animation: fall linear infinite;
+            opacity: 0.8;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+            }
+        }
+
+        #canvasContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #mainCanvas {
+            background: linear-gradient(to bottom, 
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(248, 249, 250, 0.95) 50%,
+                rgba(255, 255, 255, 0.95) 100%);
+            border: 20px solid #8B4513;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+                        inset 0 0 20px rgba(139, 69, 19, 0.3);
+            max-width: 800px;
+            max-height: 600px;
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            font-family: 'Georgia', serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #startBtn {
+            background: linear-gradient(135deg, #c41e3a 0%, #d32f2f 100%);
+            color: white;
+        }
+
+        #startBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(196, 30, 58, 0.5);
+        }
+
+        #resetBtn {
+            background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);
+            color: white;
+        }
+
+        #resetBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(30, 126, 52, 0.5);
+        }
+
+        #exportBtn {
+            background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);
+            color: white;
+        }
+
+        #exportBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 86, 179, 0.5);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        #title {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 32px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+            z-index: 1000;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="title">🎄 A Christmas Message for Ashal 🎄</div>
+    
+    <div id="canvasContainer">
+        <canvas id="mainCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <div id="controls">
+        <button id="startBtn" class="btn">Start</button>
+        <button id="resetBtn" class="btn">Reset</button>
+        <button id="exportBtn" class="btn">Export</button>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Poem text
+        const poemLines = [
+            "Missing you this Christmas season,",
+            "While I'm away for this reason.",
+            "Though miles apart we may be,",
+            "You're always in my heart, you see.",
+            "",
+            "The snow may fall, the bells may ring,",
+            "But thoughts of you make my heart sing.",
+            "From Santa's workshop, love I send,",
+            "To my dear Ashal, my special friend.",
+            "",
+            "May your days be merry and bright,",
+            "Filled with wonder and delight.",
+            "Until we meet again someday,",
+            "Christmas magic lights the way.",
+            "",
+            "With love,",
+            "Your Secret Santa"
+        ];
+
+        // Animation state
+        let animationState = {
+            isRunning: false,
+            currentLine: 0,
+            currentChar: 0,
+            penX: 0,
+            penY: 0,
+            penAngle: 0,
+            featherOffset: 0,
+            snowflakes: []
+        };
+
+        // Audio context for Jingle Bells
+        let audioContext = null;
+        let isPlaying = false;
+
+        // Jingle Bells melody (notes and durations)
+        const jingleBellsMelody = [
+            { note: 'E5', duration: 0.25 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'E5', duration: 0.5 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'E5', duration: 0.5 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'G5', duration: 0.25 },
+            { note: 'C5', duration: 0.25 },
+            { note: 'D5', duration: 0.25 },
+            { note: 'E5', duration: 1 },
+            { note: 'F5', duration: 0.25 },
+            { note: 'F5', duration: 0.25 },
+            { note: 'F5', duration: 0.25 },
+            { note: 'F5', duration: 0.25 },
+            { note: 'F5', duration: 0.25 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'D5', duration: 0.25 },
+            { note: 'D5', duration: 0.25 },
+            { note: 'E5', duration: 0.25 },
+            { note: 'D5', duration: 0.5 },
+            { note: 'G5', duration: 0.5 }
+        ];
+
+        // Note frequencies
+        const noteFrequencies = {
+            'C5': 523.25, 'D5': 587.33, 'E5': 659.25,
+            'F5': 698.46, 'G5': 783.99, 'A5': 880.00
+        };
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playNote(frequency, duration, startTime) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, startTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+            oscillator.start(startTime);
+            oscillator.stop(startTime + duration);
+        }
+
+        function playJingleBells() {
+            if (!audioContext || isPlaying) return;
+            
+            isPlaying = true;
+            let currentTime = audioContext.currentTime;
+
+            jingleBellsMelody.forEach(({ note, duration }) => {
+                if (noteFrequencies[note]) {
+                    playNote(noteFrequencies[note], duration, currentTime);
+                }
+                currentTime += duration;
+            });
+
+            setTimeout(() => {
+                isPlaying = false;
+            }, currentTime - audioContext.currentTime);
+        }
+
+        // Draw Santa's quill pen
+        function drawPen(x, y, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Pen shaft (brown/gold)
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(-3, 0, 6, 60);
+
+            // Gold nib
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.moveTo(-5, 60);
+            ctx.lineTo(0, 75);
+            ctx.lineTo(5, 60);
+            ctx.closePath();
+            ctx.fill();
+
+            // Feather plume
+            const featherColors = ['#DC143C', '#228B22', '#DC143C', '#228B22'];
+            const time = Date.now() / 1000;
+            
+            for (let i = 0; i < 4; i++) {
+                ctx.fillStyle = featherColors[i];
+                ctx.beginPath();
+                
+                const offset = Math.sin(time * 2 + i) * 3;
+                const featherX = -15 + i * 10;
+                const featherY = -10 + offset;
+                
+                // Draw feather shape
+                ctx.ellipse(featherX, featherY, 8, 25, Math.PI / 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Feather details
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(featherX, featherY - 20);
+                ctx.lineTo(featherX, featherY + 20);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Draw North Pole stationery decorations
+        function drawStationeryDecorations() {
+            // Holly corners
+            const drawHolly = (x, y) => {
+                // Holly leaves
+                ctx.fillStyle = '#228B22';
+                ctx.beginPath();
+                ctx.ellipse(x, y, 15, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(x + 10, y + 5, 15, 10, Math.PI / 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Holly berries
+                ctx.fillStyle = '#DC143C';
+                ctx.beginPath();
+                ctx.arc(x + 5, y + 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(x + 12, y + 8, 4, 0, Math.PI * 2);
+                ctx.fill();
+            };
+
+            drawHolly(30, 30);
+            drawHolly(canvas.width - 60, 30);
+            drawHolly(30, canvas.height - 30);
+            drawHolly(canvas.width - 60, canvas.height - 30);
+
+            // Top border decoration
+            ctx.strokeStyle = '#DC143C';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(100, 20);
+            ctx.lineTo(canvas.width - 100, 20);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Draw animated snow
+        function drawSnow() {
+            const currentTime = Date.now() / 1000;
+            
+            // Create snowflakes if needed
+            while (animationState.snowflakes.length < 50) {
+                animationState.snowflakes.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    speed: 0.5 + Math.random() * 1,
+                    size: 2 + Math.random() * 3,
+                    wobble: Math.random() * Math.PI * 2
+                });
+            }
+
+            // Draw and update snowflakes
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            animationState.snowflakes.forEach((flake, index) => {
+                flake.y += flake.speed;
+                flake.x += Math.sin(currentTime + flake.wobble) * 0.5;
+
+                if (flake.y > canvas.height) {
+                    flake.y = -10;
+                    flake.x = Math.random() * canvas.width;
+                }
+
+                ctx.beginPath();
+                ctx.arc(flake.x, flake.y, flake.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Draw poem text
+        function drawPoem() {
+            ctx.font = '24px Georgia, serif';
+            ctx.textBaseline = 'top';
+            
+            const lineHeight = 35;
+            const startY = 80;
+            const startX = 80;
+
+            for (let i = 0; i < animationState.currentLine; i++) {
+                const y = startY + i * lineHeight;
+                
+                // Draw full line in Christmas Green
+                ctx.fillStyle = '#228B22';
+                ctx.fillText(poemLines[i], startX, y);
+            }
+
+            // Draw current line being written
+            if (animationState.currentLine < poemLines.length) {
+                const currentLineText = poemLines[animationState.currentLine];
+                const visibleText = currentLineText.substring(0, animationState.currentChar);
+                const y = startY + animationState.currentLine * lineHeight;
+                
+                ctx.fillStyle = '#228B22';
+                ctx.fillText(visibleText, startX, y);
+
+                // Update pen position
+                const textMetrics = ctx.measureText(visibleText);
+                animationState.penX = startX + textMetrics.width;
+                animationState.penY = y;
+            }
+        }
+
+        // Clear canvas
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Main animation loop
+        function animate() {
+            if (!animationState.isRunning) return;
+
+            clearCanvas();
+            drawStationeryDecorations();
+            drawSnow();
+            drawPoem();
+
+            // Draw pen if still writing
+            if (animationState.currentLine < poemLines.length) {
+                const wobble = Math.sin(Date.now() / 200) * 0.05;
+                drawPen(animationState.penX, animationState.penY + 10, wobble);
+            }
+
+            // Advance text animation
+            if (animationState.currentLine < poemLines.length) {
+                const currentLineText = poemLines[animationState.currentLine];
+                
+                if (animationState.currentChar < currentLineText.length) {
+                    animationState.currentChar++;
+                } else {
+                    animationState.currentLine++;
+                    animationState.currentChar = 0;
+                    
+                    // Brief pause between lines
+                    setTimeout(() => {
+                        if (animationState.isRunning) {
+                            requestAnimationFrame(animate);
+                        }
+                    }, 300);
+                    return;
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start animation
+        function startAnimation() {
+            if (animationState.isRunning) return;
+            
+            animationState.isRunning = true;
+            document.getElementById('startBtn').disabled = true;
+            
+            initAudio();
+            playJingleBells();
+            animate();
+        }
+
+        // Reset animation
+        function resetAnimation() {
+            animationState.isRunning = false;
+            animationState.currentLine = 0;
+            animationState.currentChar = 0;
+            animationState.penX = 0;
+            animationState.penY = 0;
+            animationState.snowflakes = [];
+            
+            document.getElementById('startBtn').disabled = false;
+            
+            clearCanvas();
+            drawStationeryDecorations();
+            drawSnow();
+        }
+
+        // Export canvas as image
+        function exportCanvas() {
+            // Draw final state without pen
+            clearCanvas();
+            drawStationeryDecorations();
+            
+            // Draw all poem text
+            ctx.font = '24px Georgia, serif';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = '#228B22';
+            
+            const lineHeight = 35;
+            const startY = 80;
+            const startX = 80;
+
+            poemLines.forEach((line, index) => {
+                const y = startY + index * lineHeight;
+                ctx.fillText(line, startX, y);
+            });
+
+            // Export as PNG
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = 'ashal-christmas-poem.png';
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', startAnimation);
+        document.getElementById('resetBtn').addEventListener('click', resetAnimation);
+        document.getElementById('exportBtn').addEventListener('click', exportCanvas);
+
+        // Initialize
+        resetAnimation();
+
+        // Create background snowflakes
+        function createBackgroundSnow() {
+            for (let i = 0; i < 50; i++) {
+                const snowflake = document.createElement('div');
+                snowflake.className = 'snowflake';
+                snowflake.textContent = '❄';
+                snowflake.style.left = Math.random() * 100 + '%';
+                snowflake.style.animationDuration = (3 + Math.random() * 5) + 's';
+                snowflake.style.animationDelay = Math.random() * 5 + 's';
+                snowflake.style.fontSize = (0.5 + Math.random() * 1) + 'em';
+                document.body.appendChild(snowflake);
+            }
+        }
+
+        createBackgroundSnow();
+    </script>
+</body>
+</html>
